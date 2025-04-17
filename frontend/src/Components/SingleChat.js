@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import io from "socket.io-client";
 import { ChatState } from "../Context/ChatProvider";
@@ -15,10 +15,13 @@ import {
   Spinner,
   useToast,
 } from "@chakra-ui/react";
-import { ArrowBackIcon } from "@chakra-ui/icons";
+import { ArrowBackIcon, AttachmentIcon } from "@chakra-ui/icons";
 import "./mystyle.css";
+import data from "@emoji-mart/data";
+import Picker from "@emoji-mart/react";
+import SmileyIcon from "./miscellaneous/SmileyIcon";
 
-const ENDPOINT = "http://localhost:5000"; // "https://talk-a-tive.herokuapp.com"; -> After deployment
+const ENDPOINT = "http://localhost:5000";
 var socket, selectedChatCompare;
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
@@ -28,11 +31,54 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [typing, setTyping] = useState(false);
   const [istyping, setIsTyping] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const toast = useToast();
+  const inputRef = useRef();
 
   const { user, selectedChat, setSelectedChat, notification, setNotification } =
     ChatState();
+
+  const postImage = (pics) => {
+    setLoading(true);
+    if (pics === undefined) {
+      setLoading(false);
+      return;
+    }
+    if (
+      pics.type === "image/jpeg" ||
+      pics.type === "image/png" ||
+      pics.type === "image/gif"
+    ) {
+      const data = new FormData();
+      data.append("file", pics);
+      data.append("upload_preset", "chats-app");
+      data.append("cloud_name", "dx2c2nxsx");
+      fetch("https://api.cloudinary.com/v1_1/dx2c2nxsx/image/upload", {
+        method: "post",
+        body: data,
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          sendImgMessage(data.url.toString());
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.log(err);
+          setLoading(false);
+        });
+    } else {
+      toast({
+        title: "Please select an Image!",
+        status: "warning",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+      setLoading(false);
+      return;
+    }
+  };
 
   const fetchMessages = async () => {
     if (!selectedChat) return;
@@ -60,6 +106,27 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         isClosable: true,
         position: "bottom",
       });
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const { data } = await axios.get(`/api/notifs/${user._id}`);
+      const filteredData = data.map((notif) => ({
+        chat: {
+          chatName: notif.chatName,
+          isGroupChat: notif.isGroupChat,
+          users: notif.users,
+          latestMessage: notif.latestMessage,
+          _id: notif.chat,
+        },
+        _id: notif._id,
+      }));
+      console.log("Amey Filtered Notifications:", filteredData);
+      setNotification(filteredData);
+    } catch (error) {
+      console.error("Failed to fetch notifications", error);
+      setNotification([]);
     }
   };
 
@@ -105,29 +172,87 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
+  const sendImgMessage = async (imageUrl) => {
+    try {
+      const config = {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+
+      const { data } = await axios.post(
+        "/api/message",
+        {
+          content: imageUrl,
+          chatId: selectedChat._id,
+        },
+        config
+      );
+
+      socket.emit("new message", data);
+      setMessages([...messages, data]);
+    } catch (error) {
+      toast({
+        title: "Error Occurred!",
+        description: "Failed to send the image",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+    }
+  };
+
   useEffect(() => {
     fetchMessages();
+    fetchNotifications();
     selectedChatCompare = selectedChat;
   }, [selectedChat]);
 
-  // console.log(notification," <-----**");
+  console.log("Amey logged this:->", notification);
 
   useEffect(() => {
-    socket.on("message recieved", (newMessageRecieved) => {
+    if (!socket) return;
+
+    const messageHandler = async (newMessageRecieved) => {
       if (
         !selectedChatCompare ||
         selectedChatCompare._id !== newMessageRecieved.chat._id
       ) {
-        //give notification
-        if (!notification.includes(newMessageRecieved)) {
+        if (
+          !notification.some((notif) => notif._id === newMessageRecieved._id)
+        ) {
+          const notifs = {
+            id: newMessageRecieved._id,
+            chat: newMessageRecieved.chat._id,
+            chatName: newMessageRecieved.chat.chatName,
+            isGroupChat: newMessageRecieved.chat.isGroupChat,
+            latestMessage: newMessageRecieved.chat.latestMessage,
+            users: newMessageRecieved.chat.users.map((u) => ({
+              _id: u._id,
+              name: u.name,
+            })),
+          };
+          try {
+            await axios.post("/api/notifs", notifs);
+          } catch (error) {
+            console.error("Error storing notification", error);
+          }
           setNotification([newMessageRecieved, ...notification]);
           setFetchAgain(!fetchAgain);
         }
       } else {
         setMessages([...messages, newMessageRecieved]);
       }
-    });
-  });
+    };
+
+    socket.on("message recieved", messageHandler);
+
+    return () => {
+      socket.off("message recieved", messageHandler);
+    };
+  }, [socket, selectedChatCompare]);
 
   const typingHandler = (e) => {
     setNewMessage(e.target.value);
@@ -209,15 +334,71 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 <ScrollableChat messages={messages} />
               </div>
             )}
-            <FormControl onKeyDown={sendMessage} isRequired mt={3}>
+            <FormControl
+              onKeyDown={sendMessage}
+              isRequired
+              mt={3}
+              display="flex"
+              justifyContent="flex-end"
+              position="relative"
+            >
               {istyping ? <div>Typing...</div> : <></>}
               <Input
-                variant="filled"
                 bg="#E0E0E0"
-                placeholder="Type a message.."
+                placeholder="Type a message..."
                 value={newMessage}
                 onChange={typingHandler}
               />
+              {showEmojiPicker && (
+                <Box
+                  position="absolute"
+                  bottom="60px"
+                  right="80px"
+                  zIndex={100}
+                >
+                  <Picker
+                    data={data}
+                    onEmojiSelect={(emoji) =>
+                      setNewMessage((prev) => prev + emoji.native)
+                    }
+                  />
+                </Box>
+              )}
+              <>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  ref={inputRef}
+                  onChange={(e) => postImage(e.target.files[0])}
+                />
+                <IconButton
+                  size={"md"}
+                  bg="transparent"
+                  _hover={{
+                    color: "blue.500",
+                  }}
+                  p={1}
+                  borderRadius="xl"
+                  color="gray.600"
+                  icon={<SmileyIcon />}
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                />
+                <IconButton
+                  size={"lg"}
+                  bg="transparent"
+                  _hover={{
+                    color: "blue.500",
+                  }}
+                  p={1}
+                  borderRadius="lg"
+                  color="gray.600"
+                  icon={<AttachmentIcon />}
+                  onClick={() => {
+                    inputRef.current.click();
+                  }}
+                />
+              </>
             </FormControl>
           </Box>
         </>

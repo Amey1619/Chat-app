@@ -1,5 +1,6 @@
 import {
   Box,
+  Badge,
   Button,
   Tooltip,
   Text,
@@ -10,7 +11,7 @@ import {
   MenuDivider,
   Spinner,
 } from "@chakra-ui/react";
-import { Menu,Input } from "@chakra-ui/react";
+import { Menu, Input } from "@chakra-ui/react";
 import { MenuList } from "@chakra-ui/menu";
 import { BellIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { useDisclosure } from "@chakra-ui/hooks";
@@ -21,7 +22,6 @@ import { ChatState } from "../../Context/ChatProvider";
 import UserListItem from "../UserAvatar/UserListItem";
 import ChatLoading from "../ChatLoading";
 import ProfileModal from "./ProfileModal";
-import NotificationBadge, { Effect } from "react-notification-badge";
 import { useHistory } from "react-router-dom/cjs/react-router-dom.min";
 import {
   Drawer,
@@ -47,27 +47,36 @@ const SideDrawer = () => {
     setNotification,
   } = ChatState();
 
-  const toast=useToast();
-  
-  const {onOpen, onClose, isOpen} = useDisclosure();
+  const toast = useToast();
+
+  const { onOpen, onClose, isOpen } = useDisclosure();
 
   const logoutHandler = () => {
     localStorage.removeItem("userInfo");
     history.push("/");
   };
 
-  const handleSearch = async ()=>{
-      if (!search) {
-        toast({
-          title: "Please Enter something in search",
-          status: "warning",
-          duration: 5000,
-          isClosable: true,
-          position: "top-left",
-        });
-        return;
-      }
-      try {
+  const handleReadNotification = async (notifId) => {
+    try {
+      await axios.delete(`/api/notifs/${notifId}`);
+      setNotification(notification.filter((n) => n._id !== notifId));
+    } catch (error) {
+      console.error("Failed to delete notification", error);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!search) {
+      toast({
+        title: "Please Enter something in search",
+        status: "warning",
+        duration: 5000,
+        isClosable: true,
+        position: "top-left",
+      });
+      return;
+    }
+    try {
       setLoading(true);
 
       const config = {
@@ -80,44 +89,43 @@ const SideDrawer = () => {
 
       setLoading(false);
       setSearchResult(data);
+    } catch (error) {
+      toast({
+        title: "Error Occured!",
+        description: "Failed to Load the Search Results",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom-left",
+      });
     }
-    catch(error){
-         toast({
-           title: "Error Occured!",
-           description: "Failed to Load the Search Results",
-           status: "error",
-           duration: 5000,
-           isClosable: true,
-           position: "bottom-left",
-         });
-    }
-  }
+  };
 
-  const accessChat =async (userId)=>{
-    try{
-        setLoadingChat(true);
-        const config = {
+  const accessChat = async (userId) => {
+    try {
+      setLoadingChat(true);
+      const config = {
         headers: {
           "Content-type": "application/json",
           Authorization: `Bearer ${user.token}`,
         },
-    };
-    const {data}=await axios.post('/api/chat',{userId},config);
+      };
+      const { data } = await axios.post("/api/chat", { userId }, config);
 
-    if(!chats.find((c)=>c._id===data._id))setChats([data,...chats]);
+      if (!chats.find((c) => c._id === data._id)) setChats([data, ...chats]);
 
-    setSelectedChat(data);
-    setLoading(false);
-    onClose();
-    }catch(error){
-         toast({
-           title: "Error fetching the chat",
-           description: error.message,
-           status: "error",
-           duration: 5000,
-           isClosable: true,
-           position: "bottom-left",
-         });
+      setSelectedChat(data);
+      setLoading(false);
+      onClose();
+    } catch (error) {
+      toast({
+        title: "Error fetching the chat",
+        description: error.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom-left",
+      });
     }
   };
 
@@ -141,16 +149,29 @@ const SideDrawer = () => {
           </Button>
         </Tooltip>
         <Text fontSize="2xl" fontFamily="Work sans">
-          CHAT DAM
+          Talk-A-Tive
         </Text>
         <div>
           <Menu>
             <MenuButton p={1}>
-              <NotificationBadge
-                count={notification.length}
-                effect={Effect.SCALE}
-              />
-              <BellIcon fontSize="2xl" m={1} />
+              <Box position="relative" display="inline-block">
+                <BellIcon fontSize="2xl" m={1} />
+                {notification.length > 0 && (
+                  <Badge
+                    position="absolute"
+                    top="-1"
+                    right="-1"
+                    bg="red.500"
+                    color="white"
+                    borderRadius="full"
+                    px="2"
+                    fontSize="0.7em"
+                    zIndex="1"
+                  >
+                    {notification.length}
+                  </Badge>
+                )}
+              </Box>
             </MenuButton>
             <MenuList pl={2}>
               {!notification.length && "No New Messages"}
@@ -160,6 +181,7 @@ const SideDrawer = () => {
                   onClick={() => {
                     setSelectedChat(notif.chat);
                     setNotification(notification.filter((n) => n !== notif));
+                    handleReadNotification(notif._id);
                   }}
                 >
                   {notif.chat.isGroupChat

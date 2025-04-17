@@ -1,15 +1,13 @@
 import React from 'react'
 import { isLastMessage, isSameSender, isSameSenderMargin, isSameUser } from '../config/ChatLogics';
 import { ChatState } from '../Context/ChatProvider';
-import { Avatar, Tooltip } from '@chakra-ui/react';
+import { Avatar, Tooltip, Image } from "@chakra-ui/react";
 import ScrollableFeed from "react-scrollable-feed";
 
+const ScrollableChat = ({ messages }) => {
+  const { user } = ChatState();
 
-const ScrollableChat = ({messages}) => {
-  
-    const {user}=ChatState();
-  
-    return (
+  return (
     <ScrollableFeed>
       {messages &&
         messages.map((m, i) => (
@@ -35,17 +33,39 @@ const ScrollableChat = ({messages}) => {
                 marginLeft: isSameSenderMargin(messages, m, i, user._id),
                 marginTop: isSameUser(messages, m, i, user._id) ? 3 : 10,
                 borderRadius: "20px",
-                padding: "5px 15px",
-                maxWidth: "75%",
+                maxWidth: "70%",
               }}
             >
-              {m.content}
+              {m.content.includes("cloudinary") ||
+              /\.(jpeg|jpg|png|gif|webp)$/i.test(m.content) ? (
+                <img
+                  src={m.content}
+                  alt="sent media"
+                  style={{
+                    padding: "10px",
+                    maxHeight: "350px",
+                    borderRadius: "10px",
+                    display: "block",
+                    margin: "0 auto",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    display: "inline-block",
+                    whiteSpace: "pre-wrap",
+                    padding: "5px 15px",
+                  }}
+                >
+                  {m.content}
+                </span>
+              )}
             </span>
           </div>
         ))}
     </ScrollableFeed>
   );
-  
-}
+};
 
 export default ScrollableChat
