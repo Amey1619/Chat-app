@@ -3,9 +3,9 @@ const dotenv = require("dotenv");
 const { chats } = require("./data/data");
 const connectDB = require("./config/db");
 const color = require("colors");
-const userRoutes =require("./Routes/userRoutes");
-const  chatRoutes =require("./Routes/chatRoutes"); 
-const messageRoutes=require('./Routes/messageRoutes');
+const userRoutes = require("./Routes/userRoutes");
+const chatRoutes = require("./Routes/chatRoutes");
+const messageRoutes = require("./Routes/messageRoutes");
 const notificationRoutes = require("./Routes/notificationRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const http = require("http");
@@ -49,11 +49,10 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
-const io = socketio(server, {
-  // Frontend deployment
+const io = require("socket.io")(server, {
   pingTimeout: 60000,
   cors: {
-    origin: "https://chat-app-j6nd.onrender.com",
+    origin: "https://chat-app-j6nd.onrender.com", // Frontend deployment
     credentials: true,
   },
 });
