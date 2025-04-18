@@ -51,10 +51,10 @@ app.use(errorHandler)
 const PORT = process.env.PORT || 5000;
 const server=app.listen(5000, console.log(`Server is working fine on Port ${PORT}`.blue.bold));
 
-const io=require("socket.io")(server,{
+const io = require("socket.io")(server, {
   pingTimeout: 60000,
-  cors:{
-    origin:"http://localhost:3000",
+  cors: {
+    origin: "https://chat-app-j6nd.onrender.com",
   },
 });
 
