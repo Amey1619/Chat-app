@@ -122,7 +122,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         },
         _id: notif._id,
       }));
-      console.log("Amey Filtered Notifications:", filteredData);
+      // console.log("Amey Filtered Notifications:", filteredData);
       setNotification(filteredData);
     } catch (error) {
       console.error("Failed to fetch notifications", error);
@@ -210,7 +210,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     selectedChatCompare = selectedChat;
   }, [selectedChat]);
 
-  console.log("Amey logged this:->", notification);
+  // console.log("Amey logged this:->", notification);
 
   useEffect(() => {
     if (!socket) return;

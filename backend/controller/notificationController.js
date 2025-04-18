@@ -5,9 +5,15 @@ const Notification = require("../models/notificationModel");
 // POST /api/notification
 const createNotification = asyncHandler(async (req, res) => {
   try {
-    console.log("Amey Creating notification:", req.body);
     const { id, chat, chatName, isGroupChat, latestMessage, users } = req.body;
-    if (!id || !chat || !chatName || !latestMessage || !users || users.length === 0) { 
+    if (
+      !id ||
+      !chat ||
+      !chatName ||
+      !latestMessage ||
+      !users ||
+      users.length === 0
+    ) {
       throw new Error("Missing required fields");
     }
     const notification = await Notification.create({
