@@ -21,7 +21,7 @@ import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
 import SmileyIcon from "./miscellaneous/SmileyIcon";
 
-const ENDPOINT = "https://chat-app-j6nd.onrender.com";
+const ENDPOINT = "http://localhost:5000";
 var socket, selectedChatCompare;
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
