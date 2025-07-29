@@ -52,7 +52,7 @@ const server = http.createServer(app);
 const io = require("socket.io")(server, {
   pingTimeout: 60000,
   cors: {
-    origin: "https://chat-app-j6nd.onrender.com", // Frontend deployment
+    origin: "http://localhost:3000", // Frontend deployment
     credentials: true,
   },
 });
